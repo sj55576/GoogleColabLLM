@@ -109,7 +109,81 @@ export LLM_MODEL="local"
 LLM_BASE_URL="http://localhost:8000/v1" ./scripts/healthcheck.sh
 ```
 
-## 7. モデルの変更方法
+## 7. 複数バックエンドの切り替え (プロファイル)
+
+`scripts/ask.sh` / `scripts/healthcheck.sh` は、`profiles/` ディレクトリの
+設定ファイル (プロファイル) を使うことで、このリポジトリ本来のColab T4サーバー
+だけでなく、OpenAI・Groq・OpenRouter・Ollama・LM Studio・vLLM など任意の
+OpenAI互換バックエンドに簡単に切り替えられます。プロファイルを何も指定しなければ、
+これまで通り環境変数 (`LLM_BASE_URL` 等) だけで動作します (後方互換)。
+
+### 同梱プロファイルテンプレート
+
+| プロファイル名   | ベースURL                              | APIキーの環境変数    |
+|------------------|------------------------------------------|-----------------------|
+| `colab-local`    | `http://localhost:8000/v1`               | (不要、`dummy`固定)   |
+| `openai`         | `https://api.openai.com/v1`              | `OPENAI_API_KEY`      |
+| `groq`           | `https://api.groq.com/openai/v1`         | `GROQ_API_KEY`        |
+| `openrouter`     | `https://openrouter.ai/api/v1`           | `OPENROUTER_API_KEY`  |
+| `ollama`         | `http://localhost:11434/v1`              | (不要、`dummy`固定)   |
+| `lmstudio`       | `http://localhost:1234/v1`               | (不要、`dummy`固定)   |
+
+vLLM等その他のOpenAI互換サーバーを使う場合も、上記テンプレートのいずれかを
+コピーして `LLM_BASE_URL`/`LLM_MODEL` を書き換えるだけで対応できます。
+
+### セットアップ例 (OpenAI)
+
+```bash
+cp profiles/openai.env.example profiles/openai.env
+export OPENAI_API_KEY="sk-..."   # キー本体はシェル環境にのみ置く
+./scripts/ask.sh -p openai "こんにちは"
+```
+
+`profiles/*.env` は `.gitignore` で除外されているため、実体ファイルが
+誤ってコミットされることはありません。詳細は [`profiles/README.md`](profiles/README.md)
+を参照してください。
+
+`LLM_PROFILE` 環境変数でも同様に切り替えられます (`-p`/`--profile` フラグの方が優先されます):
+
+```bash
+LLM_PROFILE=groq ./scripts/ask.sh "量子化LLMとは？"
+```
+
+`scripts/healthcheck.sh` も同じ `-p`/`--profile`・`LLM_PROFILE` に対応しています:
+
+```bash
+./scripts/healthcheck.sh -p ollama
+```
+
+### モデル・systemプロンプト・生成パラメータの指定
+
+```bash
+# モデル・systemプロンプトを上書き
+./scripts/ask.sh -m gpt-4o-mini -s "あなたは簡潔に回答するアシスタントです。" "1+1は？"
+
+# temperature / max_tokens は環境変数で指定 (未設定なら送信しない)
+LLM_TEMPERATURE=0.2 LLM_MAX_TOKENS=100 ./scripts/ask.sh "量子化LLMとは？"
+```
+
+| オプション/変数     | 説明                                                     |
+|---------------------|------------------------------------------------------------|
+| `-p`, `--profile`   | `profiles/NAME.env` を読み込んでバックエンドを切り替える  |
+| `-m`, `--model`     | `model` フィールドを上書き (常に最優先)                    |
+| `-s`, `--system`    | systemプロンプトを指定 (常に最優先、`LLM_SYSTEM_PROMPT`を上書き) |
+| `LLM_PROFILE`       | `--profile`未指定時に使うプロファイル名                    |
+| `LLM_SYSTEM_PROMPT` | systemメッセージの内容                                     |
+| `LLM_TEMPERATURE`   | `temperature`フィールド (未設定なら送信しない)             |
+| `LLM_MAX_TOKENS`    | `max_tokens`フィールド (未設定なら送信しない)               |
+
+**優先順位に関する注意:**
+
+- プロファイル解決: `-p`/`--profile` フラグ > `LLM_PROFILE` 環境変数 > 指定なし。
+- プロファイルを読み込んだ場合、プロファイルファイル内の値
+  (`LLM_BASE_URL`/`LLM_MODEL`/`LLM_API_KEY`等) が、実行前にexportしていた
+  環境変数より優先されます (sourceして上書きするため)。
+- ただし `-m`/`-s` フラグは、プロファイルの値よりも常に優先されます。
+
+## 8. モデルの変更方法
 
 `HF_REPO_ID` / `HF_FILENAME` (必要なら `MODEL_PATH` も) を変更して
 `scripts/download_model.py` を再実行するだけで、別のGGUFモデルに切り替えられます。
@@ -126,7 +200,7 @@ python3 colab/start_llm_server.py
 Qwen2.5-3B系などより大きいモデルに変更する場合も同様に、`HF_REPO_ID`/`HF_FILENAME`
 を切り替えるだけで対応できます (VRAM容量には注意してください)。
 
-## 8. トラブルシューティング
+## 9. トラブルシューティング
 
 ### CUDA / GPUが見えない
 
@@ -159,7 +233,7 @@ INSTALL_CUDA_LLAMA=1 bash scripts/setup_colab.sh
 - ランタイムがリセットされた場合、ダウンロード済みモデルも消えていることがあるため、
   `scripts/download_model.py` によるモデルの再ダウンロードが必要になる場合があります。
 
-## 9. セキュリティ注意事項
+## 10. セキュリティ注意事項
 
 - トンネル (`cloudflared`/`ngrok` 等) で発行される公開URLは、知っている人なら誰でも
   アクセスできる可能性があります。認証の仕組みや一時的なURLの利用を検討し、
@@ -169,8 +243,13 @@ INSTALL_CUDA_LLAMA=1 bash scripts/setup_colab.sh
 - `LLM_API_KEY` の既定値である `dummy` は、あくまでOpenAI互換クライアント向けの
   形式的な値であり、実際の認証機能ではありません。公開環境で使う場合は
   別途アクセス制御を用意してください。
+- プロファイル実体 (`profiles/*.env`) も `.gitignore` で除外済みですが、
+  OpenAI/Groq/OpenRouter等のクラウドAPIキーについては、そもそもファイルに
+  書かずに済む `LLM_API_KEY_ENV` 方式 (環境変数名だけをプロファイルに書き、
+  キー本体はシェル環境にのみ置く) の利用を推奨します。詳細は
+  [`profiles/README.md`](profiles/README.md) を参照してください。
 
-## 10. リポジトリ構成
+## 11. リポジトリ構成
 
 ```
 .
@@ -178,13 +257,24 @@ INSTALL_CUDA_LLAMA=1 bash scripts/setup_colab.sh
 ├── requirements.txt              # Python依存パッケージ
 ├── .gitignore                    # Git管理から除外するファイル/ディレクトリ
 ├── scripts/
+│   ├── lib/
+│   │   └── common.sh             # プロファイル読み込み等の共通ライブラリ (source専用)
 │   ├── setup_colab.sh            # Colabランタイムでの依存パッケージセットアップ
 │   ├── download_model.py         # Hugging Face HubからGGUFモデルをダウンロード
 │   ├── start_server.sh           # セットアップ→モデル取得→サーバー起動を一括実行
-│   ├── healthcheck.sh            # サーバーの疎通確認
-│   └── ask.sh                    # ローカルCLIから質問を送るスクリプト
+│   ├── healthcheck.sh            # サーバーの疎通確認 (-p/--profile 対応)
+│   └── ask.sh                    # ローカルCLIから質問を送るスクリプト (-p/-m/-s 対応)
 ├── colab/
 │   └── start_llm_server.py       # llama-cpp-pythonサーバーの起動ラッパー
+├── profiles/
+│   ├── README.md                 # プロファイル機能の説明
+│   ├── colab-local.env.example    # Colabローカルサーバー向けテンプレート
+│   ├── openai.env.example        # OpenAI向けテンプレート
+│   ├── groq.env.example          # Groq向けテンプレート
+│   ├── openrouter.env.example    # OpenRouter向けテンプレート
+│   ├── ollama.env.example        # Ollama向けテンプレート
+│   └── lmstudio.env.example      # LM Studio向けテンプレート
 └── examples/
-    └── ask_example.sh            # ask.sh の実行例
+    ├── ask_example.sh            # ask.sh の基本的な実行例
+    └── ask_multi_backend.sh      # ask.sh のプロファイル切り替え実行例
 ```
