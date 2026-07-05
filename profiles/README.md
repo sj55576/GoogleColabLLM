@@ -28,6 +28,7 @@ export OPENAI_API_KEY="sk-..."
 | `openrouter.env.example`        | OpenRouter                    |
 | `ollama.env.example`            | Ollama (ローカル)             |
 | `lmstudio.env.example`          | LM Studio (ローカル)          |
+| `vllm.env.example`              | vLLM OpenAI互換サーバー       |
 
 ## `LLM_API_KEY_ENV` によるキー保護
 
