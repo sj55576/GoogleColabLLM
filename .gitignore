@@ -1,6 +1,9 @@
 # 環境変数・秘密情報
 .env
 
+# プロファイル実体 (テンプレート *.env.example のみコミットする)
+profiles/*.env
+
 # ダウンロード済みモデル
 models/
 *.gguf
