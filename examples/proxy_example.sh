@@ -68,11 +68,12 @@ run_live_demo() {
     proxy_pid=$!
 
     echo "起動待機中..."
-    local i
-    for i in $(seq 1 30); do
+    local attempts=0
+    while [[ "$attempts" -lt 30 ]]; do
         if curl -fsS "http://$proxy_host:$proxy_port/healthz" >/dev/null 2>&1; then
             break
         fi
+        attempts=$((attempts + 1))
         sleep 0.5
     done
 
