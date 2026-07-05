@@ -183,7 +183,86 @@ LLM_TEMPERATURE=0.2 LLM_MAX_TOKENS=100 ./scripts/ask.sh "量子化LLMとは？"
   環境変数より優先されます (sourceして上書きするため)。
 - ただし `-m`/`-s` フラグは、プロファイルの値よりも常に優先されます。
 
-## 8. モデルの変更方法
+## 8. 他のアプリ向けOpenAI互換プロキシ (ゲートウェイ)
+
+`scripts/openai_proxy.py` (および薄いラッパー `scripts/serve_proxy.sh`) を使うと、
+ローカルにOpenAI互換のエンドポイントを立て、`scripts/ask.sh` 以外の任意の
+OpenAI SDK対応アプリ (チャットUI、エディタ拡張、自作アプリ等) からこのリポジトリの
+バックエンドを利用できます。プロキシがプロファイルで選んだバックエンドへ
+リクエストを中継し、実際のAPIキーもプロキシ内部で注入するため、
+アプリ側にキーを設定する必要はありません。標準ライブラリのみで実装されており、
+追加のpipインストールは不要です。
+
+### アーキテクチャ図
+
+```
+他のアプリ (OpenAI SDK等)          ローカルプロキシ                    選択したバックエンド
++----------------------+        +---------------------------+        +---------------------------+
+|                       |  HTTP  |                           |  HTTP  |                           |
+| 任意のOpenAI SDK      | -----> | scripts/openai_proxy.py   | -----> | Colab / OpenAI / Groq /   |
+| クライアントアプリ    |        | http://127.0.0.1:8765/v1  |        | Ollama ... (プロファイル) |
+|                       |        | (APIキーを内部で注入)      |        |                           |
++----------------------+        +---------------------------+        +---------------------------+
+```
+
+### 起動例
+
+```bash
+./scripts/serve_proxy.sh -p groq
+PROXY_PORT=9000 ./scripts/serve_proxy.sh -p colab-local
+```
+
+### アプリ側の設定例
+
+Python (OpenAI SDK):
+
+```python
+from openai import OpenAI
+
+client = OpenAI(base_url="http://127.0.0.1:8765/v1", api_key="dummy")
+resp = client.chat.completions.create(
+    model="local",
+    messages=[{"role": "user", "content": "こんにちは"}],
+)
+print(resp.choices[0].message.content)
+```
+
+curl:
+
+```bash
+curl http://127.0.0.1:8765/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model": "local", "messages": [{"role": "user", "content": "こんにちは"}]}'
+```
+
+より詳しい例 ([`examples/proxy_example.sh`](examples/proxy_example.sh)):
+
+```bash
+./examples/proxy_example.sh          # 使い方の表示のみ
+RUN_LIVE=1 ./examples/proxy_example.sh -p colab-local   # 実際に起動して動作確認
+```
+
+### オプション一覧
+
+| 環境変数            | 既定値              | 説明                                                        |
+|---------------------|---------------------|---------------------------------------------------------------|
+| `PROXY_PORT`        | `8765`              | プロキシが待ち受けるポート番号 (`--port` でも指定可)          |
+| `PROXY_HOST`        | `127.0.0.1`          | プロキシが待ち受けるホスト (`--host` でも指定可)              |
+| `PROXY_API_KEY`     | (空 = 認証なし)      | クライアントアプリに要求するAPIキー (`Authorization: Bearer` で照合) |
+| `PROXY_FORCE_MODEL` | `0`                  | `1`にすると、リクエストの`model`を常にプロファイルの`LLM_MODEL`へ強制的に上書き |
+| `PROXY_ALLOW_CORS`  | `0`                  | `1`にするとCORSヘッダーを付与し、ブラウザ製アプリからの利用を許可 |
+
+### セキュリティ
+
+- 既定では `127.0.0.1` のみで待ち受けるため、同じ端末上のアプリからのみ
+  アクセスできます。
+- `PROXY_HOST` を `0.0.0.0` 等に変更するとLANに公開されます。この場合、
+  `PROXY_API_KEY` の設定を強く推奨します (未設定のままLAN公開すると
+  誰でもバックエンドのAPIキーを使ってリクエストを送れてしまいます)。
+- バックエンドの実APIキー (`LLM_API_KEY`) はプロキシ内部でのみ使用され、
+  クライアントアプリへ渡ることはありません。
+
+## 9. モデルの変更方法
 
 `HF_REPO_ID` / `HF_FILENAME` (必要なら `MODEL_PATH` も) を変更して
 `scripts/download_model.py` を再実行するだけで、別のGGUFモデルに切り替えられます。
@@ -200,7 +279,7 @@ python3 colab/start_llm_server.py
 Qwen2.5-3B系などより大きいモデルに変更する場合も同様に、`HF_REPO_ID`/`HF_FILENAME`
 を切り替えるだけで対応できます (VRAM容量には注意してください)。
 
-## 9. トラブルシューティング
+## 10. トラブルシューティング
 
 ### CUDA / GPUが見えない
 
@@ -233,7 +312,7 @@ INSTALL_CUDA_LLAMA=1 bash scripts/setup_colab.sh
 - ランタイムがリセットされた場合、ダウンロード済みモデルも消えていることがあるため、
   `scripts/download_model.py` によるモデルの再ダウンロードが必要になる場合があります。
 
-## 10. セキュリティ注意事項
+## 11. セキュリティ注意事項
 
 - トンネル (`cloudflared`/`ngrok` 等) で発行される公開URLは、知っている人なら誰でも
   アクセスできる可能性があります。認証の仕組みや一時的なURLの利用を検討し、
@@ -248,8 +327,13 @@ INSTALL_CUDA_LLAMA=1 bash scripts/setup_colab.sh
   書かずに済む `LLM_API_KEY_ENV` 方式 (環境変数名だけをプロファイルに書き、
   キー本体はシェル環境にのみ置く) の利用を推奨します。詳細は
   [`profiles/README.md`](profiles/README.md) を参照してください。
+- `scripts/openai_proxy.py` (プロキシ/ゲートウェイ) を公開する場合、既定の
+  `PROXY_HOST=127.0.0.1` から `0.0.0.0` 等に変更するとLANに公開されるため、
+  必ず `PROXY_API_KEY` を設定してください。未設定のままLAN公開すると、
+  同一ネットワーク上の誰でもバックエンドのAPIキーを使ってリクエストを
+  送信できてしまいます。
 
-## 11. リポジトリ構成
+## 12. リポジトリ構成
 
 ```
 .
@@ -263,7 +347,9 @@ INSTALL_CUDA_LLAMA=1 bash scripts/setup_colab.sh
 │   ├── download_model.py         # Hugging Face HubからGGUFモデルをダウンロード
 │   ├── start_server.sh           # セットアップ→モデル取得→サーバー起動を一括実行
 │   ├── healthcheck.sh            # サーバーの疎通確認 (-p/--profile 対応)
-│   └── ask.sh                    # ローカルCLIから質問を送るスクリプト (-p/-m/-s 対応)
+│   ├── ask.sh                    # ローカルCLIから質問を送るスクリプト (-p/-m/-s 対応)
+│   ├── openai_proxy.py           # 他のアプリ向けOpenAI互換プロキシ/ゲートウェイ本体
+│   └── serve_proxy.sh            # openai_proxy.py を起動する薄いラッパー
 ├── colab/
 │   └── start_llm_server.py       # llama-cpp-pythonサーバーの起動ラッパー
 ├── profiles/
@@ -276,5 +362,6 @@ INSTALL_CUDA_LLAMA=1 bash scripts/setup_colab.sh
 │   └── lmstudio.env.example      # LM Studio向けテンプレート
 └── examples/
     ├── ask_example.sh            # ask.sh の基本的な実行例
-    └── ask_multi_backend.sh      # ask.sh のプロファイル切り替え実行例
+    ├── ask_multi_backend.sh      # ask.sh のプロファイル切り替え実行例
+    └── proxy_example.sh          # openai_proxy.py (プロキシ) の使い方例
 ```
