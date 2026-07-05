@@ -1,0 +1,19 @@
+# 環境変数・秘密情報
+.env
+
+# ダウンロード済みモデル
+models/
+*.gguf
+
+# Python
+__pycache__/
+.venv/
+
+# Jupyter / Colab
+.ipynb_checkpoints/
+
+# ログ
+*.log
+
+# Claude Code セッション管理
+.claude/
