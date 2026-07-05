@@ -221,6 +221,9 @@ LLM_PROFILE=groq ./scripts/ask.sh "量子化LLMとは？"
 
 # temperature / max_tokens は環境変数で指定 (未設定なら送信しない)
 LLM_TEMPERATURE=0.2 LLM_MAX_TOKENS=100 ./scripts/ask.sh "量子化LLMとは？"
+
+# SSEストリーミング応答を逐次表示
+./scripts/ask.sh --stream "短く自己紹介してください。"
 ```
 
 | オプション/変数     | 説明                                                     |
@@ -228,6 +231,7 @@ LLM_TEMPERATURE=0.2 LLM_MAX_TOKENS=100 ./scripts/ask.sh "量子化LLMとは？"
 | `-p`, `--profile`   | `profiles/NAME.env` を読み込んでバックエンドを切り替える  |
 | `-m`, `--model`     | `model` フィールドを上書き (常に最優先)                    |
 | `-s`, `--system`    | systemプロンプトを指定 (常に最優先、`LLM_SYSTEM_PROMPT`を上書き) |
+| `--stream`          | `stream: true` を送信し、SSEの `delta.content` を受信順に表示 |
 | `LLM_PROFILE`       | `--profile`未指定時に使うプロファイル名                    |
 | `LLM_SYSTEM_PROMPT` | systemメッセージの内容                                     |
 | `LLM_TEMPERATURE`   | `temperature`フィールド (未設定なら送信しない)             |

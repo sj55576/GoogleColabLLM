@@ -8,6 +8,7 @@
 #   -p, --profile NAME   profiles/NAME.env を読み込んでバックエンドを切り替える
 #   -m, --model MODEL    modelフィールドを上書き
 #   -s, --system TEXT    systemプロンプトを指定
+#   --stream             SSEストリーミング応答を逐次表示
 #   -h, --help           ヘルプ表示
 #
 # 環境変数:
@@ -42,6 +43,7 @@ usage() {
   -p, --profile NAME   profiles/NAME.env を読み込んでバックエンドを切り替える
   -m, --model MODEL    modelフィールドを上書き
   -s, --system TEXT    systemプロンプトを指定
+  --stream             SSEストリーミング応答を逐次表示
   -h, --help           ヘルプ表示
 
 環境変数:
@@ -73,6 +75,7 @@ EOF
 PROFILE_NAME=""
 MODEL_FLAG=""
 SYSTEM_FLAG=""
+STREAM_FLAG="0"
 QUESTION=""
 
 while [[ $# -gt 0 ]]; do
@@ -111,6 +114,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --system=*)
             SYSTEM_FLAG="${1#--system=}"
+            shift
+            ;;
+        --stream)
+            STREAM_FLAG="1"
             shift
             ;;
         -h|--help)
@@ -179,6 +186,7 @@ fi
 build_request_body() {
     local question="$1"
     local model="$2"
+    local stream="$3"
 
     if command -v python3 >/dev/null 2>&1; then
         LLM_QUESTION="$question" \
@@ -186,6 +194,7 @@ build_request_body() {
         LLM_SYSTEM_PROMPT="$LLM_SYSTEM_PROMPT" \
         LLM_TEMPERATURE="$LLM_TEMPERATURE" \
         LLM_MAX_TOKENS="$LLM_MAX_TOKENS" \
+        LLM_STREAM="$stream" \
         python3 -c '
 import json
 import os
@@ -196,6 +205,7 @@ model = os.environ.get("LLM_MODEL_FOR_BODY", "")
 system_prompt = os.environ.get("LLM_SYSTEM_PROMPT", "")
 temperature_raw = os.environ.get("LLM_TEMPERATURE", "")
 max_tokens_raw = os.environ.get("LLM_MAX_TOKENS", "")
+stream = os.environ.get("LLM_STREAM", "0") == "1"
 
 messages = []
 if system_prompt:
@@ -206,6 +216,8 @@ body = {
     "model": model,
     "messages": messages,
 }
+if stream:
+    body["stream"] = True
 
 if temperature_raw:
     try:
@@ -237,13 +249,80 @@ print(json.dumps(body))
         fi
         local escaped
         escaped="$(printf '%s' "$question" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')"
-        printf '{"model": "%s", "messages": [{"role": "user", "content": "%s"}]}' "$model" "$escaped"
+        if [[ "$stream" == "1" ]]; then
+            printf '{"model": "%s", "stream": true, "messages": [{"role": "user", "content": "%s"}]}' "$model" "$escaped"
+        else
+            printf '{"model": "%s", "messages": [{"role": "user", "content": "%s"}]}' "$model" "$escaped"
+        fi
     fi
 }
 
-REQUEST_BODY="$(build_request_body "$QUESTION" "$LLM_MODEL")"
+REQUEST_BODY="$(build_request_body "$QUESTION" "$LLM_MODEL" "$STREAM_FLAG")"
+
+parse_stream_response() {
+    if ! command -v python3 >/dev/null 2>&1; then
+        echo "エラー: --stream のSSE解析にはpython3が必要です。" >&2
+        return 1
+    fi
+
+    python3 -c '
+import json
+import sys
+
+for raw_line in sys.stdin:
+    line = raw_line.rstrip("\r\n")
+    if not line or line.startswith(":"):
+        continue
+    if not line.startswith("data:"):
+        continue
+
+    data = line[len("data:"):].strip()
+    if data == "[DONE]":
+        break
+
+    try:
+        payload = json.loads(data)
+    except json.JSONDecodeError as exc:
+        print(f"エラー: SSEチャンクのJSON解析に失敗しました ({exc})", file=sys.stderr)
+        print(f"--- チャンク ---\n{data}", file=sys.stderr)
+        sys.exit(1)
+
+    if isinstance(payload, dict) and "error" in payload:
+        error_detail = payload["error"]
+        print(f"サーバーからのエラー内容: {error_detail}", file=sys.stderr)
+        sys.exit(1)
+
+    choices = payload.get("choices", []) if isinstance(payload, dict) else []
+    for choice in choices:
+        if not isinstance(choice, dict):
+            continue
+        delta = choice.get("delta", {})
+        if isinstance(delta, dict):
+            content = delta.get("content")
+            if content:
+                print(content, end="", flush=True)
+
+print()
+'
+}
 
 # --- APIへのリクエスト送信 ---
+if [[ "$STREAM_FLAG" == "1" ]]; then
+    if ! curl -fsSN --max-time 300 \
+        -X POST "$LLM_BASE_URL/chat/completions" \
+        -H "Authorization: Bearer $LLM_API_KEY" \
+        -H "Content-Type: application/json" \
+        -d "$REQUEST_BODY" | parse_stream_response; then
+        echo "エラー: LLMサーバーへのストリーミングリクエストに失敗しました。" >&2
+        echo "以下を確認してください:" >&2
+        echo "  - サーバーが起動しているか (scripts/healthcheck.sh で確認可能)" >&2
+        echo "  - LLM_BASE_URL が正しいか (現在値: $LLM_BASE_URL)" >&2
+        echo "  - バックエンドがOpenAI互換のSSEストリーミングに対応しているか" >&2
+        exit 1
+    fi
+    exit 0
+fi
+
 if ! RESPONSE="$(curl -fsS --max-time 300 \
     -X POST "$LLM_BASE_URL/chat/completions" \
     -H "Authorization: Bearer $LLM_API_KEY" \
