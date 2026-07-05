@@ -72,14 +72,15 @@ A: はい。`scripts/ask.sh` も `scripts/openai_proxy.py` も
 
 ### Q: ストリーミング応答は使えますか?
 
-A: `scripts/openai_proxy.py` 経由であれば使えます。プロキシは
-アップストリームからの応答を `read1()` で読める分だけ即座に転送するため、
-リクエストで `"stream": true` を指定したSSE (Server-Sent Events) 応答も
-リアルタイムで中継されます。詳細はREADME
+A: 使えます。CLIでは `scripts/ask.sh --stream "質問"` を指定すると、
+リクエストに `"stream": true` を付け、SSE (Server-Sent Events) の
+`delta.content` を受信順に表示します。SSE解析には `python3` が必要です。
+
+`scripts/openai_proxy.py` 経由でも使えます。プロキシはアップストリームからの応答を
+`read1()` で読める分だけ即座に転送するため、リクエストで `"stream": true` を
+指定したSSE応答もリアルタイムで中継されます。詳細はREADME
 [9. 他のアプリ向けOpenAI互換プロキシ (ゲートウェイ) > ストリーミング (SSE)](../README.md#9-他のアプリ向けopenai互換プロキシ-ゲートウェイ)
-を参照してください。一方 `scripts/ask.sh` は `curl -fsS` で1回のレスポンスを
-まとめて受け取ってから `jq`/`python3` で `content` を抽出する作りのため、
-ストリーミング応答には対応していません。
+を参照してください。
 
 ### Q: ポートが衝突してしまいます。どうすればいいですか?
 

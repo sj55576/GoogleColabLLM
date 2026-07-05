@@ -70,12 +70,14 @@ assert_backend_request() {
     local expected_model="$3"
     local expected_user="$4"
     local expected_system="${5:-}"
+    local expected_stream="${6:-}"
 
     BACKEND_LOG="$log_file" \
     EXPECTED_AUTH="$expected_auth" \
     EXPECTED_MODEL="$expected_model" \
     EXPECTED_USER="$expected_user" \
     EXPECTED_SYSTEM="$expected_system" \
+    EXPECTED_STREAM="$expected_stream" \
     "$PYTHON_BIN" - <<'PY'
 import json
 import os
@@ -99,12 +101,15 @@ expected_auth = os.environ["EXPECTED_AUTH"]
 expected_model = os.environ["EXPECTED_MODEL"]
 expected_user = os.environ["EXPECTED_USER"]
 expected_system = os.environ["EXPECTED_SYSTEM"]
+expected_stream = os.environ["EXPECTED_STREAM"]
 
 assert entry["authorization"] == f"Bearer {expected_auth}", entry
 assert body["model"] == expected_model, body
 assert body["messages"][-1] == {"role": "user", "content": expected_user}, body
 if expected_system:
     assert body["messages"][0] == {"role": "system", "content": expected_system}, body
+if expected_stream:
+    assert body["stream"] is True, body
 if "direct" in expected_model:
     assert body["temperature"] == 0.25, body
     assert body["max_tokens"] == 7, body
@@ -135,6 +140,16 @@ DIRECT_OUTPUT="$(
 )"
 [[ "$DIRECT_OUTPUT" == *"fake response: Hello \"there\""* ]]
 assert_backend_request "$BACKEND_LOG" "direct-key" "direct-model" "$QUESTION" "system prompt"
+
+log "Testing ask.sh streaming response parsing"
+STREAM_OUTPUT="$(
+    LLM_BASE_URL="http://127.0.0.1:$BACKEND_PORT/v1" \
+    LLM_API_KEY="stream-key" \
+    LLM_MODEL="stream-model" \
+    bash "$REPO_ROOT/scripts/ask.sh" --stream "stream question"
+)"
+[[ "$STREAM_OUTPUT" == "alphabeta" ]]
+assert_backend_request "$BACKEND_LOG" "stream-key" "stream-model" "stream question" "" "1"
 
 log "Testing profile loading and LLM_API_KEY_ENV resolution"
 cat > "$PROFILE_FILE" <<EOF
