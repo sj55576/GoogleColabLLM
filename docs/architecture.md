@@ -31,6 +31,15 @@ scripts/start_server.sh
               -> GGUF量子化モデル (models/*.gguf) をロード
 ```
 
+GUIから同じ流れを実行することもできます。`colab/dashboard.ipynb` を開いて
+`dashboard_ui.show()` を実行すると、「実行」タブの起動ボタンが
+`colab/dashboard.py` の `ServerManager.start()` を呼び出します。
+`ServerManager` は `build_server_command()` で `start_llm_server.py` と
+同一の引数列 (`python3 -m llama_cpp.server --model ... --host ... --port ...`) を
+組み立て、`logs/llm_server.log` へ出力しつつサブプロセスとして起動するため、
+CLI経由の起動と同じ挙動になります (「モデル」タブの取得も同様に
+`download_model()` が `scripts/download_model.py` と同じ役割を担います)。
+
 ### (b) ローカルCLI: 質問を送る
 
 ```
@@ -68,6 +77,9 @@ scripts/openai_proxy.py (scripts/serve_proxy.sh はその薄いラッパー)
 | `scripts/setup_colab.sh` | GPU確認・pip install・(任意) CUDA版llama-cpp-python再インストール・`models/`作成 | `INSTALL_CUDA_LLAMA` | Colabランタイム上、`start_server.sh` の最初のステップとして |
 | `scripts/download_model.py` | Hugging Face HubからGGUFモデルをダウンロード (既に存在すればスキップ) | `HF_REPO_ID`, `HF_FILENAME`, `MODEL_DIR`, `HF_TOKEN` | Colabランタイム上、モデルを取得/変更するとき |
 | `colab/start_llm_server.py` | `llama_cpp.server` をサブプロセスとして起動するラッパー (モデルパス検証・引数組み立て・バナー表示) | `MODEL_PATH`, `LLM_HOST`, `LLM_PORT`, `N_GPU_LAYERS`, `N_CTX` | Colabランタイム上、サーバー起動時 |
+| `colab/dashboard.py` | ダッシュボードのコアロジック層 (`ServerManager`によるサーバー起動/停止/監視、モデルダウンロード、ヘルスチェック、チャット送信、GPU情報取得) | (なし。`ServerConfig`/関数引数で設定し、環境変数は使わない) | `dashboard_ui.py` から呼ばれる、またはテストから直接import |
+| `colab/dashboard_ui.py` | ipywidgetsによるGUI層 (モデル/サーバー設定/実行/モニタ/テストチャットの5タブ)。実処理は`dashboard.py`に委譲 | - | Colab/Jupyterのノートブックセルで `dashboard_ui.show()` を実行したとき |
+| `colab/dashboard.ipynb` | clone→セットアップ→ダッシュボード表示までを行うColabノートブックのエントリポイント | - | Colab上で本ノートブックを開いて上から実行するとき |
 | `scripts/start_server.sh` | 上記3つ (セットアップ→ダウンロード→起動) を一括実行するオーケストレーション | (上記すべてを継承) | `colab --gpu T4 exec scripts/start_server.sh` 実行時 |
 | `scripts/lib/common.sh` | `load_profile()` を提供する共通ライブラリ (source専用、直接実行しない) | `LLM_API_KEY_ENV` | `ask.sh` / `healthcheck.sh` から source される |
 | `scripts/ask.sh` | 質問文をOpenAI互換の `/chat/completions` に送信し、回答テキストを表示 | `LLM_PROFILE`, `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`, `LLM_SYSTEM_PROMPT`, `LLM_TEMPERATURE`, `LLM_MAX_TOKENS` | ローカル端末で質問するとき |

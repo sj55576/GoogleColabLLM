@@ -120,6 +120,26 @@ Colab CLI が利用できない環境では、通常の Colab ノートブック
 !bash scripts/start_server.sh
 ```
 
+### ダッシュボード (GUI) から操作する
+
+CLIの代わりに、Colabノートブック上のGUIでモデル選択からサーバー起動・動作確認まで
+一通り操作することもできます。
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sj55576/GCLLM/blob/main/colab/dashboard.ipynb)
+
+ノートブックを開いて上から順にセルを実行すると、以下の5タブで構成される
+ダッシュボードが表示されます。
+
+- **モデル**: プリセットから選択、またはHugging Faceリポジトリを指定してダウンロード
+- **サーバー設定**: ポート・N_CTX・N_GPU_LAYERSを設定 (第6章の同名の環境変数と同じ意味)
+- **実行**: サーバーの起動・停止・再起動・ヘルスチェック
+- **モニタ**: GPU使用状況とサーバーログ (`logs/llm_server.log`) の確認
+- **テストチャット**: 起動したサーバーへ質問を送って動作確認
+
+内部的には `colab/dashboard.py` の `ServerManager` が `colab/start_llm_server.py` と
+同じコマンド列を組み立ててサブプロセスとして起動するため、CLIと同じ挙動になります。
+詳細は [`docs/architecture.md`](docs/architecture.md) を参照してください。
+
 ## 6. サーバー起動時の環境変数
 
 `colab/start_llm_server.py` および関連スクリプトは、以下の環境変数で挙動を調整できます。
@@ -458,7 +478,10 @@ INSTALL_CUDA_LLAMA=1 bash scripts/setup_colab.sh
 │   ├── openai_proxy.py           # 他のアプリ向けOpenAI互換プロキシ/ゲートウェイ本体
 │   └── serve_proxy.sh            # openai_proxy.py を起動する薄いラッパー
 ├── colab/
-│   └── start_llm_server.py       # llama-cpp-pythonサーバーの起動ラッパー
+│   ├── start_llm_server.py       # llama-cpp-pythonサーバーの起動ラッパー
+│   ├── dashboard.py              # ダッシュボードのコアロジック (ServerManager等)
+│   ├── dashboard_ui.py           # ダッシュボードのGUI層 (ipywidgets)
+│   └── dashboard.ipynb           # Colab上でダッシュボードを開くノートブック
 ├── profiles/
 │   ├── README.md                 # プロファイル機能の説明
 │   ├── colab-local.env.example    # Colabローカルサーバー向けテンプレート
@@ -480,7 +503,8 @@ INSTALL_CUDA_LLAMA=1 bash scripts/setup_colab.sh
 │   ├── run_tests.sh              # 偽バックエンドを使った機能テスト
 │   ├── fake_openai_backend.py    # テスト用OpenAI互換バックエンド
 │   ├── check_sse_timing.py       # SSE中継タイミング検証
-│   └── check_readme_links.py     # Markdownリンク/アンカー検証
+│   ├── check_readme_links.py     # Markdownリンク/アンカー検証
+│   └── test_dashboard.py         # ダッシュボード (dashboard.py) のユニットテスト
 ├── .github/
 │   └── workflows/
 │       └── ci.yml                # GitHub Actions CI
