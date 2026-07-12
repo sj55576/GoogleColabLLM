@@ -17,6 +17,7 @@ __pycache__/
 
 # ログ
 *.log
+logs/
 
 # Claude Code セッション管理
 .claude/

@@ -118,6 +118,9 @@ PY
 
 cd "$REPO_ROOT"
 
+log "Running dashboard unit tests"
+"$PYTHON_BIN" "$REPO_ROOT/tests/test_dashboard.py"
+
 BACKEND_PORT="$(free_port)"
 BACKEND_LOG="$TMP_DIR/backend.jsonl"
 log "Starting fake backend on $BACKEND_PORT"
