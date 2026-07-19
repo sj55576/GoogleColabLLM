@@ -1,4 +1,4 @@
-# colab-local-llm-cli
+# GoogleColabLLM
 
 [English](README.md) | **日本語**
 
@@ -115,7 +115,7 @@ colab --gpu T4 exec scripts/start_server.sh
 リポジトリをランタイムに配置する場合の例 (git clone をランタイム上で実行):
 
 ```bash
-colab --gpu T4 exec -- git clone https://github.com/<your>/colab-local-llm-cli.git
+colab --gpu T4 exec -- git clone https://github.com/sj55576/GoogleColabLLM.git
 ```
 
 ### フォールバック: Colab CLI が使えない場合
@@ -124,8 +124,8 @@ Colab CLI が利用できない環境では、通常の Colab ノートブック
 同等の操作を行うことができます。
 
 ```python
-!git clone https://github.com/<your>/colab-local-llm-cli.git
-%cd colab-local-llm-cli
+!git clone https://github.com/sj55576/GoogleColabLLM.git
+%cd GoogleColabLLM
 !bash scripts/start_server.sh
 ```
 

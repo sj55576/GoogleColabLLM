@@ -1,4 +1,4 @@
-# colab-local-llm-cli
+# GoogleColabLLM
 
 **English** | [日本語](README.ja.md)
 
@@ -120,7 +120,7 @@ colab --gpu T4 exec scripts/start_server.sh
 Example of placing the repository on the runtime (running git clone on the runtime):
 
 ```bash
-colab --gpu T4 exec -- git clone https://github.com/<your>/colab-local-llm-cli.git
+colab --gpu T4 exec -- git clone https://github.com/sj55576/GoogleColabLLM.git
 ```
 
 ### Fallback: when the Colab CLI is unavailable
@@ -129,8 +129,8 @@ In environments where the Colab CLI cannot be used, the equivalent steps can
 be run from regular Colab notebook cells.
 
 ```python
-!git clone https://github.com/<your>/colab-local-llm-cli.git
-%cd colab-local-llm-cli
+!git clone https://github.com/sj55576/GoogleColabLLM.git
+%cd GoogleColabLLM
 !bash scripts/start_server.sh
 ```
 
