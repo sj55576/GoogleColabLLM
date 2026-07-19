@@ -134,7 +134,7 @@ Colab CLI が利用できない環境では、通常の Colab ノートブック
 CLIの代わりに、Colabノートブック上のGUIでモデル選択からサーバー起動・動作確認まで
 一通り操作することもできます。
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sj55576/GCLLM/blob/main/colab/dashboard.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sj55576/GoogleColabLLM/blob/main/colab/dashboard.ipynb)
 
 ノートブックを開いて上から順にセルを実行すると、以下の5タブで構成される
 ダッシュボードが表示されます。

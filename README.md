@@ -139,7 +139,7 @@ be run from regular Colab notebook cells.
 Instead of the CLI, you can also do everything — from model selection to
 server startup and testing — through a GUI in a Colab notebook.
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sj55576/GCLLM/blob/main/colab/dashboard.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sj55576/GoogleColabLLM/blob/main/colab/dashboard.ipynb)
 
 Open the notebook and run the cells top to bottom to get a dashboard with the
 following five tabs:

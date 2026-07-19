@@ -547,7 +547,7 @@ def build_dashboard() -> "widgets.Widget":
     tab.set_title(3, "モニタ")
     tab.set_title(4, "テストチャット")
 
-    return widgets.VBox([widgets.HTML("<h3>GCLLM ダッシュボード</h3>"), tab])
+    return widgets.VBox([widgets.HTML("<h3>GoogleColabLLM ダッシュボード</h3>"), tab])
 
 
 def show() -> None:
