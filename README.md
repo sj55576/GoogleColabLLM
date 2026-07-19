@@ -6,6 +6,14 @@ A lightweight collection of scripts that runs a GGUF-quantized LLM as an
 OpenAI-compatible API on a Google Colab T4 runtime, and lets you query it from
 a CLI on your local machine.
 
+> [!WARNING]
+> **Disclaimer**: This project is under active development and is provided
+> "as is", without warranty of any kind. There is no guarantee that it will
+> work in your environment, and its behavior and interfaces may change
+> without notice. Use it at your own risk — the authors accept no liability
+> for any damage or loss (including API usage fees or data loss) arising
+> from its use. See also the [LICENSE](LICENSE) (MIT).
+
 ## Table of Contents
 
 - [1. Overview](#1-overview)
