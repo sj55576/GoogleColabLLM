@@ -460,6 +460,18 @@ INSTALL_CUDA_LLAMA=1 bash scripts/setup_colab.sh
   同一ネットワーク上の誰でもバックエンドのAPIキーを使ってリクエストを
   送信できてしまいます。
 
+### Google Colab の利用規約について
+
+- 本ツールは Google Colab 上でLLMサーバーを起動しますが、Colab の利用には
+  [Google Colab の利用規約](https://research.google.com/colaboratory/faq.html)が適用されます。
+  特に無料枠では、長時間の常時稼働やリモートからの継続的なサービス提供といった
+  用途が制限の対象になり得ます。
+- 対話的な実験・開発の範囲で利用し、使い終わったらランタイムを停止するなど、
+  Colab の利用規約の範囲内でご利用ください。長時間・恒常的にサーバーを運用したい
+  場合は、Colab Pro 等の有償プランや、自前のGPU環境・クラウドVM
+  (プロファイル機能で `vllm`/`ollama` 等のバックエンドに切り替え可能) の利用を
+  検討してください。
+
 ## 13. リポジトリ構成
 
 ```
