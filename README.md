@@ -1,63 +1,68 @@
 # colab-local-llm-cli
 
-Google Colab の T4 ランタイム上に GGUF 量子化 LLM を OpenAI 互換 API として起動し、
-ローカル端末の CLI から質問できるようにするための、軽量なスクリプト集です。
+**English** | [日本語](README.ja.md)
 
-## 目次
+A lightweight collection of scripts that runs a GGUF-quantized LLM as an
+OpenAI-compatible API on a Google Colab T4 runtime, and lets you query it from
+a CLI on your local machine.
 
-- [1. 概要](#1-概要)
-- [2. クイックスタート](#2-クイックスタート)
-- [3. アーキテクチャ図](#3-アーキテクチャ図)
-- [4. 前提条件](#4-前提条件)
-- [5. セットアップ / T4ランタイム起動例](#5-セットアップ--t4ランタイム起動例)
-- [6. サーバー起動時の環境変数](#6-サーバー起動時の環境変数)
-- [7. ローカルからの接続](#7-ローカルからの接続)
-- [8. 複数バックエンドの切り替え (プロファイル)](#8-複数バックエンドの切り替え-プロファイル)
-- [9. 他のアプリ向けOpenAI互換プロキシ (ゲートウェイ)](#9-他のアプリ向けopenai互換プロキシ-ゲートウェイ)
-- [10. モデルの変更方法](#10-モデルの変更方法)
-- [11. トラブルシューティング](#11-トラブルシューティング)
-- [12. セキュリティ注意事項](#12-セキュリティ注意事項)
-- [13. リポジトリ構成](#13-リポジトリ構成)
-- [14. ライセンス](#14-ライセンス)
+## Table of Contents
 
-## 1. 概要
+- [1. Overview](#1-overview)
+- [2. Quickstart](#2-quickstart)
+- [3. Architecture Diagram](#3-architecture-diagram)
+- [4. Prerequisites](#4-prerequisites)
+- [5. Setup / Starting a T4 Runtime](#5-setup--starting-a-t4-runtime)
+- [6. Server Environment Variables](#6-server-environment-variables)
+- [7. Connecting from Your Local Machine](#7-connecting-from-your-local-machine)
+- [8. Switching Between Backends (Profiles)](#8-switching-between-backends-profiles)
+- [9. OpenAI-Compatible Proxy for Other Apps (Gateway)](#9-openai-compatible-proxy-for-other-apps-gateway)
+- [10. Changing the Model](#10-changing-the-model)
+- [11. Troubleshooting](#11-troubleshooting)
+- [12. Security Notes](#12-security-notes)
+- [13. Repository Layout](#13-repository-layout)
+- [14. License](#14-license)
 
-このリポジトリは以下を行います。
+## 1. Overview
 
-- Google Colab CLI (公式CLI) を使って T4 ランタイムを起動し、`llama-cpp-python` の
-  OpenAI互換サーバー (`llama_cpp.server`) 上で GGUF 量子化モデルを動かします。
-- ローカル端末からは、シンプルな `curl` ベースの CLI (`scripts/ask.sh`) を使って、
-  `POST /v1/chat/completions` 相当のリクエストを送り、回答を受け取ります。
-- モデルのダウンロードやセットアップ、ヘルスチェックまで一通り自動化しています。
+This repository does the following:
 
-## 2. クイックスタート
+- Starts a T4 runtime with the official Google Colab CLI and runs a
+  GGUF-quantized model on the `llama-cpp-python` OpenAI-compatible server
+  (`llama_cpp.server`).
+- From your local machine, a simple `curl`-based CLI (`scripts/ask.sh`) sends
+  `POST /v1/chat/completions`-style requests and prints the answer.
+- Model download, setup, and health checks are all automated.
 
-最短経路で試す場合の手順です。各ステップの詳細は該当する章のリンク先を参照してください。
+## 2. Quickstart
 
-### (1) Colab側: サーバーを起動する
+The shortest path to try it out. See the linked chapters for details on each step.
+
+### (1) Colab side: start the server
 
 ```bash
 colab --gpu T4 exec scripts/start_server.sh
 ```
 
-Colab CLI が使えない場合は、通常のColabノートブックのセルからでも同じ操作ができます。
-詳細は[第5章](#5-セットアップ--t4ランタイム起動例)を参照してください。
+If the Colab CLI is not available, the same operation can be done from a
+regular Colab notebook cell. See [chapter 5](#5-setup--starting-a-t4-runtime).
 
-### (2) ローカル側: 疎通確認してから質問する
+### (2) Local side: health check, then ask
 
 ```bash
 LLM_BASE_URL="http://localhost:8000/v1" ./scripts/healthcheck.sh
 export LLM_BASE_URL="http://localhost:8000/v1"
-./scripts/ask.sh "量子化LLMとは？"
+./scripts/ask.sh "What is a quantized LLM?"
 ```
 
-トンネル経由の接続方法は[第7章](#7-ローカルからの接続)、他のバックエンドへの
-切り替えは[第8章](#8-複数バックエンドの切り替え-プロファイル)を参照してください。
+See [chapter 7](#7-connecting-from-your-local-machine) for connecting through a
+tunnel, and [chapter 8](#8-switching-between-backends-profiles) for switching
+to other backends.
 
-### (3) 他のアプリから使う場合
+### (3) Using it from other apps
 
 ```bash
-./scripts/serve_proxy.sh   # 既定でColabローカルサーバー(http://localhost:8000/v1)へ中継
+./scripts/serve_proxy.sh   # relays to the Colab local server (http://localhost:8000/v1) by default
 ```
 
 ```python
@@ -65,54 +70,55 @@ from openai import OpenAI
 client = OpenAI(base_url="http://127.0.0.1:8765/v1", api_key="dummy")
 ```
 
-詳細は[第9章](#9-他のアプリ向けopenai互換プロキシ-ゲートウェイ)を参照してください。
+See [chapter 9](#9-openai-compatible-proxy-for-other-apps-gateway) for details.
 
-## 3. アーキテクチャ図
+## 3. Architecture Diagram
 
 ```
-ローカル端末                            Colab T4 ランタイム
+Local machine                           Colab T4 runtime
 +--------------------+                +-----------------------------------+
-|                    |   ポート        |                                   |
-| scripts/ask.sh     |  フォワード/    |  colab/start_llm_server.py        |
-| (CLIクライアント)  | <--トンネル-->  |   -> llama-cpp-python server      |
-|                    | (http://:8000) |      (OpenAI互換API, :8000)       |
-+--------------------+                |   -> GGUF量子化モデル (models/)   |
+|                    |     port       |                                   |
+| scripts/ask.sh     |   forward /    |  colab/start_llm_server.py        |
+| (CLI client)       | <--tunnel-->   |   -> llama-cpp-python server      |
+|                    | (http://:8000) |      (OpenAI-compatible API,:8000)|
++--------------------+                |   -> GGUF quantized model         |
+                                      |      (models/)                    |
                                       +-----------------------------------+
 ```
 
-各コンポーネントの詳しい役割やリクエストの流れ、設定の優先順位については
-[`docs/architecture.md`](docs/architecture.md) を参照してください。
+For a detailed description of each component, the request flow, and the
+configuration precedence rules, see [`docs/architecture.md`](docs/architecture.md).
 
-## 4. 前提条件
+## 4. Prerequisites
 
-- Google アカウント (Google Colab を利用できること)
-- Google Colab CLI (公式CLI) がインストール・認証済みであること
-  - 公式ドキュメント: https://developers.google.com/colab
-  - インストール方法・認証手順はバージョンによって変わる可能性があるため、
-    必ず公式ドキュメントの最新手順に従ってください
-    (例として `pip install google-colab-cli` のような形になる場合があります)。
-- Python 3.10 以上 (ローカル端末側、およびColabランタイム側)
-- `curl` (ローカル端末側での動作確認・API呼び出しに使用)
+- A Google account (with access to Google Colab)
+- The official Google Colab CLI, installed and authenticated
+  - Official docs: https://developers.google.com/colab
+  - Installation and authentication steps may change between versions, so
+    always follow the latest official documentation
+    (it may look something like `pip install google-colab-cli`).
+- Python 3.10+ (on both the local machine and the Colab runtime)
+- `curl` (used on the local machine for health checks and API calls)
 
-## 5. セットアップ / T4ランタイム起動例
+## 5. Setup / Starting a T4 Runtime
 
-Colab CLI を使って、T4 GPU ランタイム上でセットアップからサーバー起動までを
-一括実行する想定コマンドは以下の通りです。
+The intended one-shot command that runs setup through server startup on a
+T4 GPU runtime via the Colab CLI:
 
 ```bash
 colab --gpu T4 exec scripts/start_server.sh
 ```
 
-リポジトリをランタイムに配置する場合の例 (git clone をランタイム上で実行):
+Example of placing the repository on the runtime (running git clone on the runtime):
 
 ```bash
 colab --gpu T4 exec -- git clone https://github.com/<your>/colab-local-llm-cli.git
 ```
 
-### フォールバック: Colab CLI が使えない場合
+### Fallback: when the Colab CLI is unavailable
 
-Colab CLI が利用できない環境では、通常の Colab ノートブックのセルから
-同等の操作を行うことができます。
+In environments where the Colab CLI cannot be used, the equivalent steps can
+be run from regular Colab notebook cells.
 
 ```python
 !git clone https://github.com/<your>/colab-local-llm-cli.git
@@ -120,183 +126,190 @@ Colab CLI が利用できない環境では、通常の Colab ノートブック
 !bash scripts/start_server.sh
 ```
 
-### ダッシュボード (GUI) から操作する
+### Using the dashboard (GUI)
 
-CLIの代わりに、Colabノートブック上のGUIでモデル選択からサーバー起動・動作確認まで
-一通り操作することもできます。
+Instead of the CLI, you can also do everything — from model selection to
+server startup and testing — through a GUI in a Colab notebook.
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sj55576/GCLLM/blob/main/colab/dashboard.ipynb)
 
-ノートブックを開いて上から順にセルを実行すると、以下の5タブで構成される
-ダッシュボードが表示されます。
+Open the notebook and run the cells top to bottom to get a dashboard with the
+following five tabs:
 
-- **モデル**: プリセットから選択、またはHugging Faceリポジトリを指定してダウンロード
-- **サーバー設定**: ポート・N_CTX・N_GPU_LAYERSを設定 (第6章の同名の環境変数と同じ意味)
-- **実行**: サーバーの起動・停止・再起動・ヘルスチェック
-- **モニタ**: GPU使用状況とサーバーログ (`logs/llm_server.log`) の確認
-- **テストチャット**: 起動したサーバーへ質問を送って動作確認
+- **Model**: pick from presets, or specify a Hugging Face repository to download
+- **Server settings**: set the port, N_CTX, and N_GPU_LAYERS (same meaning as
+  the environment variables of the same names in chapter 6)
+- **Run**: start / stop / restart the server and run health checks
+- **Monitor**: check GPU usage and the server log (`logs/llm_server.log`)
+- **Test chat**: send questions to the running server to verify it works
 
-内部的には `colab/dashboard.py` の `ServerManager` が `colab/start_llm_server.py` と
-同じコマンド列を組み立ててサブプロセスとして起動するため、CLIと同じ挙動になります。
-詳細は [`docs/architecture.md`](docs/architecture.md) を参照してください。
+Internally, `ServerManager` in `colab/dashboard.py` assembles the same command
+line as `colab/start_llm_server.py` and launches it as a subprocess, so the
+behavior matches the CLI. See [`docs/architecture.md`](docs/architecture.md)
+for details.
 
-## 6. サーバー起動時の環境変数
+## 6. Server Environment Variables
 
-`colab/start_llm_server.py` および関連スクリプトは、以下の環境変数で挙動を調整できます。
+`colab/start_llm_server.py` and related scripts can be tuned with the
+following environment variables.
 
-| 変数名        | 既定値                                              | 意味                                             |
-|---------------|------------------------------------------------------|--------------------------------------------------|
-| `MODEL_PATH`  | `models/qwen2.5-1.5b-instruct-q4_k_m.gguf` (repo基準) | 起動するGGUFモデルファイルのパス                 |
-| `LLM_HOST`    | `0.0.0.0`                                             | サーバーがバインドするホスト                     |
-| `LLM_PORT`    | `8000`                                                | サーバーが待ち受けるポート番号                   |
-| `N_GPU_LAYERS`| `-1`                                                  | GPUにオフロードするレイヤー数 (`-1`で全レイヤー) |
-| `N_CTX`       | `4096`                                                | コンテキスト長 (トークン数)                      |
-| `HF_REPO_ID`  | `Qwen/Qwen2.5-1.5B-Instruct-GGUF`                     | ダウンロード元のHugging Faceリポジトリ           |
-| `HF_FILENAME` | `qwen2.5-1.5b-instruct-q4_k_m.gguf`                   | ダウンロードするファイル名                       |
-| `MODEL_DIR`   | `models`                                              | モデルの保存先ディレクトリ (repo基準の相対パス可)|
-| `HF_TOKEN`    | (未設定)                                              | gated (要認証) モデル取得用のHugging Faceトークン|
+| Variable       | Default                                                  | Meaning                                            |
+|----------------|----------------------------------------------------------|----------------------------------------------------|
+| `MODEL_PATH`   | `models/qwen2.5-1.5b-instruct-q4_k_m.gguf` (repo-relative) | Path of the GGUF model file to load                |
+| `LLM_HOST`     | `0.0.0.0`                                                | Host the server binds to                           |
+| `LLM_PORT`     | `8000`                                                   | Port the server listens on                         |
+| `N_GPU_LAYERS` | `-1`                                                     | Number of layers to offload to the GPU (`-1` = all)|
+| `N_CTX`        | `4096`                                                   | Context length (in tokens)                         |
+| `HF_REPO_ID`   | `Qwen/Qwen2.5-1.5B-Instruct-GGUF`                        | Hugging Face repository to download from           |
+| `HF_FILENAME`  | `qwen2.5-1.5b-instruct-q4_k_m.gguf`                      | File name to download                              |
+| `MODEL_DIR`    | `models`                                                 | Directory to store models (repo-relative allowed)  |
+| `HF_TOKEN`     | (unset)                                                  | Hugging Face token for gated (auth-required) models|
 
-## 7. ローカルからの接続
+## 7. Connecting from Your Local Machine
 
-サーバーは Colab ランタイム上の `localhost:8000` で待ち受けます。ローカル端末から
-アクセスするには、以下のいずれかの方法でランタイムの外に公開する必要があります。
+The server listens on `localhost:8000` inside the Colab runtime. To reach it
+from your local machine, expose it outside the runtime in one of these ways:
 
-- (a) Colab CLI のポートフォワード機能 (利用可能な場合はそちらを優先してください)
-- (b) トンネルサービス (`cloudflared` や `ngrok` など) を使う (任意・オプション)
+- (a) The Colab CLI's port-forwarding feature (prefer this when available)
+- (b) A tunnel service such as `cloudflared` or `ngrok` (optional)
 
-トンネルの例 (`cloudflared` を使う場合):
+Tunnel example (using `cloudflared`):
 
 ```bash
 cloudflared tunnel --url http://localhost:8000
 ```
 
-上記で発行されたURL (例: `https://xxxx.trycloudflare.com`) を使い、ローカル端末側で
-以下のように接続します。
+Using the URL it prints (e.g. `https://xxxx.trycloudflare.com`), connect from
+your local machine like this:
 
 ```bash
-export LLM_BASE_URL="http://localhost:8000/v1"   # トンネル利用時は https://xxxx.trycloudflare.com/v1 などに置き換える
+export LLM_BASE_URL="http://localhost:8000/v1"   # when using a tunnel, replace with e.g. https://xxxx.trycloudflare.com/v1
 export LLM_API_KEY="dummy"
 export LLM_MODEL="local"
-./scripts/ask.sh "量子化LLMとは？"
+./scripts/ask.sh "What is a quantized LLM?"
 ```
 
-動作確認 (ヘルスチェック):
+Verifying connectivity (health check):
 
 ```bash
 LLM_BASE_URL="http://localhost:8000/v1" ./scripts/healthcheck.sh
 ```
 
-## 8. 複数バックエンドの切り替え (プロファイル)
+## 8. Switching Between Backends (Profiles)
 
-`scripts/ask.sh` / `scripts/healthcheck.sh` は、`profiles/` ディレクトリの
-設定ファイル (プロファイル) を使うことで、このリポジトリ本来のColab T4サーバー
-だけでなく、OpenAI・Groq・OpenRouter・Ollama・LM Studio・vLLM など任意の
-OpenAI互換バックエンドに簡単に切り替えられます。プロファイルを何も指定しなければ、
-これまで通り環境変数 (`LLM_BASE_URL` 等) だけで動作します (後方互換)。
+Using configuration files (profiles) in the `profiles/` directory,
+`scripts/ask.sh` / `scripts/healthcheck.sh` can easily switch not only to this
+repository's own Colab T4 server, but to any OpenAI-compatible backend such as
+OpenAI, Groq, OpenRouter, Ollama, LM Studio, or vLLM. If no profile is
+specified, everything keeps working with environment variables alone
+(`LLM_BASE_URL`, etc.) for backward compatibility.
 
-### 同梱プロファイルテンプレート
+### Bundled profile templates
 
-| プロファイル名   | ベースURL                              | APIキーの環境変数    |
-|------------------|------------------------------------------|-----------------------|
-| `colab-local`    | `http://localhost:8000/v1`               | (不要、`dummy`固定)   |
-| `openai`         | `https://api.openai.com/v1`              | `OPENAI_API_KEY`      |
-| `groq`           | `https://api.groq.com/openai/v1`         | `GROQ_API_KEY`        |
-| `openrouter`     | `https://openrouter.ai/api/v1`           | `OPENROUTER_API_KEY`  |
-| `ollama`         | `http://localhost:11434/v1`              | (不要、`dummy`固定)   |
-| `lmstudio`       | `http://localhost:1234/v1`               | (不要、`dummy`固定)   |
-| `vllm`           | `http://localhost:8000/v1`               | (構成に応じて設定)    |
+| Profile name   | Base URL                                 | API key environment variable |
+|----------------|------------------------------------------|------------------------------|
+| `colab-local`  | `http://localhost:8000/v1`               | (not needed, fixed `dummy`)  |
+| `openai`       | `https://api.openai.com/v1`              | `OPENAI_API_KEY`             |
+| `groq`         | `https://api.groq.com/openai/v1`         | `GROQ_API_KEY`               |
+| `openrouter`   | `https://openrouter.ai/api/v1`           | `OPENROUTER_API_KEY`         |
+| `ollama`       | `http://localhost:11434/v1`              | (not needed, fixed `dummy`)  |
+| `lmstudio`     | `http://localhost:1234/v1`               | (not needed, fixed `dummy`)  |
+| `vllm`         | `http://localhost:8000/v1`               | (set as your setup requires) |
 
-vLLM等その他のOpenAI互換サーバーを使う場合も、同梱テンプレートをコピーして
-`LLM_BASE_URL`/`LLM_MODEL` を書き換えるだけで対応できます。
+For vLLM and other OpenAI-compatible servers, just copy a bundled template and
+change `LLM_BASE_URL` / `LLM_MODEL`.
 
-### セットアップ例 (OpenAI)
+### Setup example (OpenAI)
 
 ```bash
 cp profiles/openai.env.example profiles/openai.env
-export OPENAI_API_KEY="sk-..."   # キー本体はシェル環境にのみ置く
-./scripts/ask.sh -p openai "こんにちは"
+export OPENAI_API_KEY="sk-..."   # keep the key itself only in your shell environment
+./scripts/ask.sh -p openai "Hello"
 ```
 
-`profiles/*.env` は `.gitignore` で除外されているため、実体ファイルが
-誤ってコミットされることはありません。詳細は [`profiles/README.md`](profiles/README.md)
-を参照してください。
+`profiles/*.env` is excluded by `.gitignore`, so concrete profile files cannot
+be committed by accident. See [`profiles/README.md`](profiles/README.md) for
+details.
 
-`LLM_PROFILE` 環境変数でも同様に切り替えられます (`-p`/`--profile` フラグの方が優先されます):
+The `LLM_PROFILE` environment variable works the same way (the `-p`/`--profile`
+flag takes precedence):
 
 ```bash
-LLM_PROFILE=groq ./scripts/ask.sh "量子化LLMとは？"
+LLM_PROFILE=groq ./scripts/ask.sh "What is a quantized LLM?"
 ```
 
-`scripts/healthcheck.sh` も同じ `-p`/`--profile`・`LLM_PROFILE` に対応しています:
+`scripts/healthcheck.sh` supports the same `-p`/`--profile` and `LLM_PROFILE`:
 
 ```bash
 ./scripts/healthcheck.sh -p ollama
 ```
 
-### モデル・systemプロンプト・生成パラメータの指定
+### Model, system prompt, and generation parameters
 
 ```bash
-# モデル・systemプロンプトを上書き
-./scripts/ask.sh -m gpt-4o-mini -s "あなたは簡潔に回答するアシスタントです。" "1+1は？"
+# Override the model and system prompt
+./scripts/ask.sh -m gpt-4o-mini -s "You are an assistant that answers concisely." "What is 1+1?"
 
-# temperature / max_tokens は環境変数で指定 (未設定なら送信しない)
-LLM_TEMPERATURE=0.2 LLM_MAX_TOKENS=100 ./scripts/ask.sh "量子化LLMとは？"
+# temperature / max_tokens via environment variables (not sent when unset)
+LLM_TEMPERATURE=0.2 LLM_MAX_TOKENS=100 ./scripts/ask.sh "What is a quantized LLM?"
 
-# SSEストリーミング応答を逐次表示
-./scripts/ask.sh --stream "短く自己紹介してください。"
+# Print an SSE streaming response incrementally
+./scripts/ask.sh --stream "Introduce yourself briefly."
 ```
 
-| オプション/変数     | 説明                                                     |
-|---------------------|------------------------------------------------------------|
-| `-p`, `--profile`   | `profiles/NAME.env` を読み込んでバックエンドを切り替える  |
-| `-m`, `--model`     | `model` フィールドを上書き (常に最優先)                    |
-| `-s`, `--system`    | systemプロンプトを指定 (常に最優先、`LLM_SYSTEM_PROMPT`を上書き) |
-| `--stream`          | `stream: true` を送信し、SSEの `delta.content` を受信順に表示 |
-| `LLM_PROFILE`       | `--profile`未指定時に使うプロファイル名                    |
-| `LLM_SYSTEM_PROMPT` | systemメッセージの内容                                     |
-| `LLM_TEMPERATURE`   | `temperature`フィールド (未設定なら送信しない)             |
-| `LLM_MAX_TOKENS`    | `max_tokens`フィールド (未設定なら送信しない)               |
+| Option / variable   | Description                                                        |
+|---------------------|--------------------------------------------------------------------|
+| `-p`, `--profile`   | Load `profiles/NAME.env` to switch backends                        |
+| `-m`, `--model`     | Override the `model` field (always highest precedence)             |
+| `-s`, `--system`    | Set the system prompt (always highest precedence, overrides `LLM_SYSTEM_PROMPT`) |
+| `--stream`          | Send `stream: true` and print SSE `delta.content` as it arrives    |
+| `LLM_PROFILE`       | Profile name used when `--profile` is not given                    |
+| `LLM_SYSTEM_PROMPT` | Content of the system message                                      |
+| `LLM_TEMPERATURE`   | `temperature` field (not sent when unset)                          |
+| `LLM_MAX_TOKENS`    | `max_tokens` field (not sent when unset)                           |
 
-**優先順位に関する注意:**
+**Notes on precedence:**
 
-- プロファイル解決: `-p`/`--profile` フラグ > `LLM_PROFILE` 環境変数 > 指定なし。
-- プロファイルを読み込んだ場合、プロファイルファイル内の値
-  (`LLM_BASE_URL`/`LLM_MODEL`/`LLM_API_KEY`等) が、実行前にexportしていた
-  環境変数より優先されます (sourceして上書きするため)。
-- ただし `-m`/`-s` フラグは、プロファイルの値よりも常に優先されます。
+- Profile resolution: `-p`/`--profile` flag > `LLM_PROFILE` environment
+  variable > none.
+- When a profile is loaded, the values inside the profile file
+  (`LLM_BASE_URL`/`LLM_MODEL`/`LLM_API_KEY`, etc.) take precedence over
+  environment variables exported beforehand (the file is sourced over them).
+- The `-m`/`-s` flags, however, always take precedence over profile values.
 
-プロファイルの作り方や使い分けについてよくある質問は [`docs/faq.md`](docs/faq.md) にまとめています。
+Frequently asked questions about creating and choosing profiles are collected
+in [`docs/faq.md`](docs/faq.md).
 
-## 9. 他のアプリ向けOpenAI互換プロキシ (ゲートウェイ)
+## 9. OpenAI-Compatible Proxy for Other Apps (Gateway)
 
-`scripts/openai_proxy.py` (および薄いラッパー `scripts/serve_proxy.sh`) を使うと、
-ローカルにOpenAI互換のエンドポイントを立て、`scripts/ask.sh` 以外の任意の
-OpenAI SDK対応アプリ (チャットUI、エディタ拡張、自作アプリ等) からこのリポジトリの
-バックエンドを利用できます。プロキシがプロファイルで選んだバックエンドへ
-リクエストを中継し、実際のAPIキーもプロキシ内部で注入するため、
-アプリ側にキーを設定する必要はありません。標準ライブラリのみで実装されており、
-追加のpipインストールは不要です。
+With `scripts/openai_proxy.py` (and its thin wrapper `scripts/serve_proxy.sh`),
+you can run a local OpenAI-compatible endpoint and use this repository's
+backends from any OpenAI-SDK-compatible app (chat UIs, editor extensions, your
+own apps, etc.) — not just `scripts/ask.sh`. The proxy relays requests to the
+backend selected by a profile and injects the real API key internally, so the
+client app never needs the key. It is implemented with the standard library
+only; no extra pip installs are required.
 
-### アーキテクチャ図
+### Architecture diagram
 
 ```
-他のアプリ (OpenAI SDK等)          ローカルプロキシ                    選択したバックエンド
+Other apps (OpenAI SDK, etc.)      Local proxy                         Selected backend
 +----------------------+        +---------------------------+        +---------------------------+
-|                       |  HTTP  |                           |  HTTP  |                           |
-| 任意のOpenAI SDK      | -----> | scripts/openai_proxy.py   | -----> | Colab / OpenAI / Groq /   |
-| クライアントアプリ    |        | http://127.0.0.1:8765/v1  |        | Ollama ... (プロファイル) |
-|                       |        | (APIキーを内部で注入)      |        |                           |
+|                      |  HTTP  |                           |  HTTP  |                           |
+| Any OpenAI SDK       | -----> | scripts/openai_proxy.py   | -----> | Colab / OpenAI / Groq /   |
+| client app           |        | http://127.0.0.1:8765/v1  |        | Ollama ... (per profile)  |
+|                      |        | (injects the API key)     |        |                           |
 +----------------------+        +---------------------------+        +---------------------------+
 ```
 
-### 起動例
+### Starting the proxy
 
 ```bash
 ./scripts/serve_proxy.sh -p groq
 PROXY_PORT=9000 ./scripts/serve_proxy.sh -p colab-local
 ```
 
-### アプリ側の設定例
+### Client-side configuration examples
 
 Python (OpenAI SDK):
 
@@ -306,7 +319,7 @@ from openai import OpenAI
 client = OpenAI(base_url="http://127.0.0.1:8765/v1", api_key="dummy")
 resp = client.chat.completions.create(
     model="local",
-    messages=[{"role": "user", "content": "こんにちは"}],
+    messages=[{"role": "user", "content": "Hello"}],
 )
 print(resp.choices[0].message.content)
 ```
@@ -316,28 +329,28 @@ curl:
 ```bash
 curl http://127.0.0.1:8765/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -d '{"model": "local", "messages": [{"role": "user", "content": "こんにちは"}]}'
+  -d '{"model": "local", "messages": [{"role": "user", "content": "Hello"}]}'
 ```
 
-より詳しい例 ([`examples/proxy_example.sh`](examples/proxy_example.sh)):
+A more detailed example ([`examples/proxy_example.sh`](examples/proxy_example.sh)):
 
 ```bash
-./examples/proxy_example.sh          # 使い方の表示のみ
-RUN_LIVE=1 ./examples/proxy_example.sh -p colab-local   # 実際に起動して動作確認
+./examples/proxy_example.sh          # only prints usage
+RUN_LIVE=1 ./examples/proxy_example.sh -p colab-local   # actually starts it and verifies
 ```
 
-### ストリーミング (SSE)
+### Streaming (SSE)
 
-プロキシはアップストリームからの応答を `read1()` で読める分だけ即座に転送するため、
-バックエンドがSSE (Server-Sent Events) でストリーミング応答する場合も、
-チャンクをリアルタイムでそのままクライアントへ中継します。
+The proxy forwards upstream data as soon as it can be read with `read1()`, so
+when the backend streams a response via SSE (Server-Sent Events), chunks are
+relayed to the client in real time as-is.
 
 curl:
 
 ```bash
 curl -N http://127.0.0.1:8765/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -d '{"model": "local", "stream": true, "messages": [{"role": "user", "content": "こんにちは"}]}'
+  -d '{"model": "local", "stream": true, "messages": [{"role": "user", "content": "Hello"}]}'
 ```
 
 Python (OpenAI SDK, `stream=True`):
@@ -348,7 +361,7 @@ from openai import OpenAI
 client = OpenAI(base_url="http://127.0.0.1:8765/v1", api_key="dummy")
 stream = client.chat.completions.create(
     model="local",
-    messages=[{"role": "user", "content": "こんにちは"}],
+    messages=[{"role": "user", "content": "Hello"}],
     stream=True,
 )
 for chunk in stream:
@@ -357,30 +370,31 @@ for chunk in stream:
         print(delta, end="", flush=True)
 ```
 
-### オプション一覧
+### Options
 
-| 環境変数            | 既定値              | 説明                                                        |
-|---------------------|---------------------|---------------------------------------------------------------|
-| `PROXY_PORT`        | `8765`              | プロキシが待ち受けるポート番号 (`--port` でも指定可)          |
-| `PROXY_HOST`        | `127.0.0.1`          | プロキシが待ち受けるホスト (`--host` でも指定可)              |
-| `PROXY_API_KEY`     | (空 = 認証なし)      | クライアントアプリに要求するAPIキー (`Authorization: Bearer` で照合) |
-| `PROXY_FORCE_MODEL` | `0`                  | `1`にすると、リクエストの`model`を常にプロファイルの`LLM_MODEL`へ強制的に上書き |
-| `PROXY_ALLOW_CORS`  | `0`                  | `1`にするとCORSヘッダーを付与し、ブラウザ製アプリからの利用を許可 |
+| Environment variable | Default             | Description                                                     |
+|----------------------|---------------------|-----------------------------------------------------------------|
+| `PROXY_PORT`         | `8765`              | Port the proxy listens on (also settable via `--port`)          |
+| `PROXY_HOST`         | `127.0.0.1`         | Host the proxy listens on (also settable via `--host`)          |
+| `PROXY_API_KEY`      | (empty = no auth)   | API key required from client apps (checked via `Authorization: Bearer`) |
+| `PROXY_FORCE_MODEL`  | `0`                 | When `1`, always overwrite the request's `model` with the profile's `LLM_MODEL` |
+| `PROXY_ALLOW_CORS`   | `0`                 | When `1`, add CORS headers so browser-based apps can connect    |
 
-### セキュリティ
+### Security
 
-- 既定では `127.0.0.1` のみで待ち受けるため、同じ端末上のアプリからのみ
-  アクセスできます。
-- `PROXY_HOST` を `0.0.0.0` 等に変更するとLANに公開されます。この場合、
-  `PROXY_API_KEY` の設定を強く推奨します (未設定のままLAN公開すると
-  誰でもバックエンドのAPIキーを使ってリクエストを送れてしまいます)。
-- バックエンドの実APIキー (`LLM_API_KEY`) はプロキシ内部でのみ使用され、
-  クライアントアプリへ渡ることはありません。
+- By default the proxy listens on `127.0.0.1` only, so only apps on the same
+  machine can reach it.
+- Changing `PROXY_HOST` to `0.0.0.0` or similar exposes it to the LAN. In that
+  case, setting `PROXY_API_KEY` is strongly recommended (without it, anyone on
+  the network can send requests using your backend API key).
+- The backend's real API key (`LLM_API_KEY`) is used only inside the proxy and
+  is never passed to client apps.
 
-## 10. モデルの変更方法
+## 10. Changing the Model
 
-`HF_REPO_ID` / `HF_FILENAME` (必要なら `MODEL_PATH` も) を変更して
-`scripts/download_model.py` を再実行するだけで、別のGGUFモデルに切り替えられます。
+Switching to another GGUF model only requires changing `HF_REPO_ID` /
+`HF_FILENAME` (and `MODEL_PATH` if needed) and re-running
+`scripts/download_model.py`.
 
 ```bash
 export HF_REPO_ID="bartowski/Llama-3.2-1B-Instruct-GGUF"
@@ -391,127 +405,141 @@ export MODEL_PATH="models/Llama-3.2-1B-Instruct-Q4_K_M.gguf"
 python3 colab/start_llm_server.py
 ```
 
-Qwen2.5-3B系などより大きいモデルに変更する場合も同様に、`HF_REPO_ID`/`HF_FILENAME`
-を切り替えるだけで対応できます (VRAM容量には注意してください)。
+Larger models such as the Qwen2.5-3B family work the same way — just switch
+`HF_REPO_ID`/`HF_FILENAME` (watch your VRAM budget).
 
-## 11. トラブルシューティング
+## 11. Troubleshooting
 
-ここに載っていない疑問点は [`docs/faq.md`](docs/faq.md) も参照してください。
+For questions not covered here, also see [`docs/faq.md`](docs/faq.md).
 
-### CI / テスト
+### CI / tests
 
-PRごとにGitHub Actionsで `bash -n`、`python3 -m compileall`、`shellcheck`、
-Markdownリンク検証、偽OpenAI互換バックエンドを使った機能テストを実行します。
-ローカルで主要な機能テストを確認する場合は以下を実行してください。
+GitHub Actions runs `bash -n`, `python3 -m compileall`, `shellcheck`, Markdown
+link validation, and functional tests against a fake OpenAI-compatible backend
+on every PR. To run the main functional tests locally:
 
 ```bash
 bash tests/run_tests.sh
 ```
 
-### CUDA / GPUが見えない
+### CUDA / GPU not visible
 
-- Colabの「ランタイムのタイプを変更」からGPU (T4) が選択されているか確認してください。
-- `nvidia-smi` がエラーになる場合は、ランタイムがGPUに接続されていません。
-- `llama-cpp-python` がCPUのみでビルドされている場合、`INSTALL_CUDA_LLAMA=1` を
-  指定して `scripts/setup_colab.sh` を実行し、CUDA対応版を再インストールしてください。
+- Check that a GPU (T4) is selected under Colab's "Change runtime type".
+- If `nvidia-smi` fails, the runtime is not connected to a GPU.
+- If `llama-cpp-python` was built CPU-only, re-run `scripts/setup_colab.sh`
+  with `INSTALL_CUDA_LLAMA=1` to reinstall the CUDA-enabled build.
 
 ```bash
 INSTALL_CUDA_LLAMA=1 bash scripts/setup_colab.sh
 ```
 
-### モデルが大きすぎる / OOM (メモリ不足)
+### Model too large / OOM (out of memory)
 
-- より小さい量子化 (例: Q4_K_M → Q3_K_M など) やパラメータ数の少ないモデルを使用してください。
-- `N_CTX` (コンテキスト長) を下げてメモリ使用量を減らしてください。
-- `N_GPU_LAYERS` を減らし、一部のレイヤーをCPUにオフロードしてVRAM使用量を抑えてください。
+- Use a smaller quantization (e.g. Q4_K_M → Q3_K_M) or a model with fewer parameters.
+- Lower `N_CTX` (context length) to reduce memory usage.
+- Reduce `N_GPU_LAYERS` to offload some layers to the CPU and save VRAM.
 
-### ポートに接続できない
+### Cannot connect to the port
 
-- `scripts/healthcheck.sh` でサーバーが起動しているか確認してください。
-- サーバー自体がColabランタイム上で起動しているか確認してください
-  (`scripts/start_server.sh` の実行ログを確認)。
-- トンネル利用時はトンネルのURLが変わっていないか確認してください。
-- `LLM_BASE_URL` の末尾に `/v1` を付け忘れていないか確認してください。
+- Check that the server is up with `scripts/healthcheck.sh`.
+- Check that the server itself is running on the Colab runtime
+  (look at the output of `scripts/start_server.sh`).
+- When using a tunnel, check that the tunnel URL has not changed.
+- Check that `LLM_BASE_URL` ends with `/v1`.
 
-### Colabセッションが切れた
+### Colab session disconnected
 
-- ランタイムを再接続し、`scripts/start_server.sh` を再実行してください。
-- ランタイムがリセットされた場合、ダウンロード済みモデルも消えていることがあるため、
-  `scripts/download_model.py` によるモデルの再ダウンロードが必要になる場合があります。
+- Reconnect the runtime and re-run `scripts/start_server.sh`.
+- If the runtime was reset, downloaded models may also be gone, in which case
+  you may need to re-download them with `scripts/download_model.py`.
 
-## 12. セキュリティ注意事項
+## 12. Security Notes
 
-- トンネル (`cloudflared`/`ngrok` 等) で発行される公開URLは、知っている人なら誰でも
-  アクセスできる可能性があります。認証の仕組みや一時的なURLの利用を検討し、
-  使い終わったら速やかにトンネルを停止してください。
-- APIキーやHugging Faceトークンを `.env` に記載する場合も、絶対にコミットしないで
-  ください (`.gitignore` で `.env` は既に除外されています)。
-- `LLM_API_KEY` の既定値である `dummy` は、あくまでOpenAI互換クライアント向けの
-  形式的な値であり、実際の認証機能ではありません。公開環境で使う場合は
-  別途アクセス制御を用意してください。
-- プロファイル実体 (`profiles/*.env`) も `.gitignore` で除外済みですが、
-  OpenAI/Groq/OpenRouter等のクラウドAPIキーについては、そもそもファイルに
-  書かずに済む `LLM_API_KEY_ENV` 方式 (環境変数名だけをプロファイルに書き、
-  キー本体はシェル環境にのみ置く) の利用を推奨します。詳細は
-  [`profiles/README.md`](profiles/README.md) を参照してください。
-- `scripts/openai_proxy.py` (プロキシ/ゲートウェイ) を公開する場合、既定の
-  `PROXY_HOST=127.0.0.1` から `0.0.0.0` 等に変更するとLANに公開されるため、
-  必ず `PROXY_API_KEY` を設定してください。未設定のままLAN公開すると、
-  同一ネットワーク上の誰でもバックエンドのAPIキーを使ってリクエストを
-  送信できてしまいます。
+- Public URLs issued by tunnels (`cloudflared`/`ngrok`, etc.) can potentially
+  be accessed by anyone who knows them. Consider authentication and short-lived
+  URLs, and stop the tunnel promptly when you are done.
+- Never commit API keys or Hugging Face tokens, even when written in `.env`
+  (`.env` is already excluded via `.gitignore`).
+- The default `LLM_API_KEY` value `dummy` is only a placeholder for
+  OpenAI-compatible clients, not an actual authentication mechanism. Provide
+  separate access control when using this in a public environment.
+- Concrete profile files (`profiles/*.env`) are also excluded via
+  `.gitignore`, but for cloud API keys (OpenAI/Groq/OpenRouter, etc.) we
+  recommend the `LLM_API_KEY_ENV` approach, which avoids writing keys to files
+  entirely (only the environment variable name goes into the profile; the key
+  itself stays in your shell environment). See
+  [`profiles/README.md`](profiles/README.md) for details.
+- If you expose `scripts/openai_proxy.py` (the proxy/gateway), changing the
+  default `PROXY_HOST=127.0.0.1` to `0.0.0.0` or similar makes it reachable
+  from the LAN, so always set `PROXY_API_KEY`. Left unset while exposed to the
+  LAN, anyone on the same network can send requests using your backend API key.
 
-## 13. リポジトリ構成
+### About the Google Colab Terms of Service
+
+- This tool starts an LLM server on Google Colab, and your use of Colab is
+  subject to the
+  [Google Colab Terms of Service](https://research.google.com/colaboratory/faq.html).
+  In particular, on the free tier, long-running always-on workloads and
+  continuously serving remote clients may fall under its restrictions.
+- Please stay within the Colab Terms of Service — use it for interactive
+  experimentation and development, and stop the runtime when you are done. If
+  you want to run a server for long or sustained periods, consider a paid plan
+  such as Colab Pro, or your own GPU machine or a cloud VM (the profile
+  feature lets you switch to backends such as `vllm`/`ollama`).
+
+## 13. Repository Layout
 
 ```
 .
-├── README.md                     # このファイル
-├── requirements.txt              # Python依存パッケージ
-├── .gitignore                    # Git管理から除外するファイル/ディレクトリ
+├── README.md                     # This file (English)
+├── README.ja.md                  # Japanese version
+├── requirements.txt              # Python dependencies
+├── .gitignore                    # Files/directories excluded from Git
 ├── scripts/
 │   ├── lib/
-│   │   └── common.sh             # プロファイル読み込み等の共通ライブラリ (source専用)
-│   ├── setup_colab.sh            # Colabランタイムでの依存パッケージセットアップ
-│   ├── download_model.py         # Hugging Face HubからGGUFモデルをダウンロード
-│   ├── start_server.sh           # セットアップ→モデル取得→サーバー起動を一括実行
-│   ├── healthcheck.sh            # サーバーの疎通確認 (-p/--profile 対応)
-│   ├── ask.sh                    # ローカルCLIから質問を送るスクリプト (-p/-m/-s 対応)
-│   ├── openai_proxy.py           # 他のアプリ向けOpenAI互換プロキシ/ゲートウェイ本体
-│   └── serve_proxy.sh            # openai_proxy.py を起動する薄いラッパー
+│   │   └── common.sh             # Shared library for profile loading, etc. (source-only)
+│   ├── setup_colab.sh            # Dependency setup on the Colab runtime
+│   ├── download_model.py         # Download GGUF models from the Hugging Face Hub
+│   ├── start_server.sh           # Setup → model download → server start, in one shot
+│   ├── healthcheck.sh            # Server connectivity check (supports -p/--profile)
+│   ├── ask.sh                    # CLI script to send questions (supports -p/-m/-s)
+│   ├── openai_proxy.py           # OpenAI-compatible proxy/gateway for other apps
+│   └── serve_proxy.sh            # Thin wrapper that starts openai_proxy.py
 ├── colab/
-│   ├── start_llm_server.py       # llama-cpp-pythonサーバーの起動ラッパー
-│   ├── dashboard.py              # ダッシュボードのコアロジック (ServerManager等)
-│   ├── dashboard_ui.py           # ダッシュボードのGUI層 (ipywidgets)
-│   └── dashboard.ipynb           # Colab上でダッシュボードを開くノートブック
+│   ├── start_llm_server.py       # Startup wrapper for the llama-cpp-python server
+│   ├── dashboard.py              # Dashboard core logic (ServerManager, etc.)
+│   ├── dashboard_ui.py           # Dashboard GUI layer (ipywidgets)
+│   └── dashboard.ipynb           # Notebook that opens the dashboard on Colab
 ├── profiles/
-│   ├── README.md                 # プロファイル機能の説明
-│   ├── colab-local.env.example    # Colabローカルサーバー向けテンプレート
-│   ├── openai.env.example        # OpenAI向けテンプレート
-│   ├── groq.env.example          # Groq向けテンプレート
-│   ├── openrouter.env.example    # OpenRouter向けテンプレート
-│   ├── ollama.env.example        # Ollama向けテンプレート
-│   ├── lmstudio.env.example      # LM Studio向けテンプレート
-│   └── vllm.env.example          # vLLM向けテンプレート
+│   ├── README.md                 # Description of the profile feature
+│   ├── colab-local.env.example   # Template for the Colab local server
+│   ├── openai.env.example        # Template for OpenAI
+│   ├── groq.env.example          # Template for Groq
+│   ├── openrouter.env.example    # Template for OpenRouter
+│   ├── ollama.env.example        # Template for Ollama
+│   ├── lmstudio.env.example      # Template for LM Studio
+│   └── vllm.env.example          # Template for vLLM
 ├── examples/
-│   ├── README.md                 # 実行例スクリプトの一覧・使い方
-│   ├── ask_example.sh            # ask.sh の基本的な実行例
-│   ├── ask_multi_backend.sh      # ask.sh のプロファイル切り替え実行例
-│   └── proxy_example.sh          # openai_proxy.py (プロキシ) の使い方例
+│   ├── README.md                 # List and usage of example scripts
+│   ├── ask_example.sh            # Basic usage example of ask.sh
+│   ├── ask_multi_backend.sh      # Profile-switching example of ask.sh
+│   └── proxy_example.sh          # Usage example of openai_proxy.py (proxy)
 ├── docs/
-│   ├── architecture.md           # アーキテクチャ・リクエストの流れ・設定優先順位の詳細
-│   └── faq.md                    # よくある質問
+│   ├── architecture.md           # Architecture, request flow, config precedence
+│   └── faq.md                    # Frequently asked questions
 ├── tests/
-│   ├── run_tests.sh              # 偽バックエンドを使った機能テスト
-│   ├── fake_openai_backend.py    # テスト用OpenAI互換バックエンド
-│   ├── check_sse_timing.py       # SSE中継タイミング検証
-│   ├── check_readme_links.py     # Markdownリンク/アンカー検証
-│   └── test_dashboard.py         # ダッシュボード (dashboard.py) のユニットテスト
+│   ├── run_tests.sh              # Functional tests using the fake backend
+│   ├── fake_openai_backend.py    # OpenAI-compatible backend for tests
+│   ├── check_sse_timing.py       # SSE relay timing verification
+│   ├── check_readme_links.py     # Markdown link/anchor validation
+│   └── test_dashboard.py         # Unit tests for the dashboard (dashboard.py)
 ├── .github/
 │   └── workflows/
 │       └── ci.yml                # GitHub Actions CI
-└── LICENSE                       # MITライセンス
+└── LICENSE                       # MIT License
 ```
 
-## 14. ライセンス
+## 14. License
 
-本リポジトリは MIT ライセンスの下で公開されています。詳細は [`LICENSE`](LICENSE)
-ファイルを参照してください。
+This repository is released under the MIT License. See the
+[`LICENSE`](LICENSE) file for details.
